@@ -7,8 +7,9 @@ HOST = '129.25.33.136'
 PORT = 8888
 
 # Data Types
-TYPE_RGB = 		0
-TYPE_DEPTH = 	1
+TYPE_RGB =      0
+TYPE_DEPTH =    1
+TYPE_EDGE =     2
 
 
 class RoniRecvThread(threading.Thread):

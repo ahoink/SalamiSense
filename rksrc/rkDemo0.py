@@ -1,4 +1,5 @@
 from pysrc.Roni import RoniClient
+import pysrc.Coppa as Coppa
 import pyrealsense2 as rs
 import numpy as np
 from PIL import Image
@@ -47,17 +48,17 @@ def main():
 		if not colorFrame:
 			continue
 
-		color = np.asanyarray(colorFrame.get_data())
-		depth = np.asanyarray(depthFrame.get_data())
+		#color = np.asanyarray(colorFrame.get_data())
+		#depth = np.asanyarray(depthFrame.get_data())
 
-		if len(color) == 0:
-			continue
-
-		ret, buf = cv.imencode('.jpg', color)
+		#if len(color) == 0:
+		#	continue
+		#ret, buf = cv.imencode('.jpg', color)
 		#cv.imwrite('poo.jpg', buf)
-		jpgTxt = base64.b64encode(buf)
+		#jpgTxt = base64.b64encode(buf)
 
-		print(len(jpgTxt))
+		#print(len(jpgTxt))
+		jpgTxt = Coppa.encodeColorFrame(colorFrame)
 		client.sendData(jpgTxt)
 
 

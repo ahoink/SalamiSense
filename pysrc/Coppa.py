@@ -3,7 +3,7 @@ import numpy as np
 import cv2 as cv
 
 def encodeColorFrame(colorFrame):
-	r = np.asanyarray(colorFrame.get_data())
+	color = np.asanyarray(colorFrame.get_data())
 	ret, buf = cv.imencode('.jpg', color)
 	jpgTxt = base64.b64encode(buf)
 	return jpgTxt

@@ -1,26 +1,48 @@
 import socket
 import threading
+import struct
 
-HOST = '127.0.0.1'
+# Default Network Info
+HOST = '129.25.33.136'
 PORT = 8888
+
+# Data Types
+TYPE_RGB = 		0
+TYPE_DEPTH = 	1
+
 
 class RoniRecvThread(threading.Thread):
 	def __init__(self, conn):
 		super(RoniRecvThread, self).__init__()
 		self.conn = conn
 		self.go = True
-		self.data = []
+		self.data = [[],[],[]]
 
 	def run(self):
 		while self.go:
-			data = self.conn.recv(1024)
-			if len(data) > 0:
-				self.data = data
+			st = self.recvAll(8)
+			if not st:
+				continue
+			st = struct.unpack('>II', st)
+			msgLen = st[0]
+			dType = st[1]
+			data = self.recvAll(msgLen)
+			if data:
+				self.data[dType] = data
 		self.conn.close()
 
-	def getData(self):
-		data = self.data
-		self.data = []
+	def recvAll(self, n):
+		data = b''
+		while len(data) < n:
+			pack = self.conn.recv(n - len(data))
+			if not pack:
+				return None
+			data += pack
+		return data
+
+	def getData(self, dType):
+		data = self.data[dType]
+		self.data[dType] = []
 		return data
 
 	def stop(self):
@@ -44,8 +66,8 @@ class RoniServer:
 		recvThread.start()
 		return recvThread
 
-	def receiveData(self, conn, size=1024):
-		return conn.getData()
+	def receiveData(self, conn, dType=0):
+		return conn.getData(dType)
 
 	def close(self):
 		for conn in self.connections:
@@ -63,8 +85,9 @@ class RoniClient:
 	def connect(self):
 		self.sock.connect((self.host, self.port))
 
-	def sendData(self, data):
-		self.sock.sendall(data)
+	def sendData(self, data, dType=0):
+		msg = struct.pack('>II', len(data), dType) + data
+		self.sock.sendall(msg)
 
 	def close(self):
 		self.sock.close()

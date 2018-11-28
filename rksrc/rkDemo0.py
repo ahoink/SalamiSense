@@ -15,8 +15,8 @@ def main():
 
 	# Enable color and depth streams
 	config = rs.config()
-	config.enable_stream(rs.stream.depth, 640, 360, rs.format.z16, 15)
-	config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+	#config.enable_stream(rs.stream.depth, 640, 360, rs.format.z16, 30)
+	config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
 
 	# Start streams
 	profile = pipeline.start(config)
@@ -33,18 +33,28 @@ def main():
 	client = RoniClient()
 	print("Connecting")
 	client.connect()
+	last10 = [0] * 10
+	i = 0
+	t0 = 0
+	t1 = 1
 
 	while True:
 		# Get next set of frames from stream
+		t0 = time.time()
 		frames = pipeline.wait_for_frames()
 
 		# Align depth frame to color frame
 		alignedFrames = align.process(frames)
 
 		# Get aligned depth and color frames
-		depthFrame = alignedFrames.get_depth_frame()
+		#depthFrame = alignedFrames.get_depth_frame()
 		colorFrame = alignedFrames.get_color_frame()
 
+		t1 = time.time()
+		last10[i] = 1.0 / (t1 - t0)
+		i = (i + 1) % 10
+		fps = np.average(last10)
+		#print("fps: %f" % (fps))
 		if not colorFrame:
 			continue
 
@@ -59,10 +69,11 @@ def main():
 
 		#print(len(jpgTxt))
 		jpgTxt = Coppa.encodeColorFrame(colorFrame)
-		client.sendData(jpgTxt)
+		if client.sendData(jpgTxt) == False:
+			break
 
 
-	serv.close()
+	client.close()
 
 if __name__ == '__main__':
 	main()

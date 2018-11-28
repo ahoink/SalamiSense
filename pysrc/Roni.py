@@ -87,8 +87,12 @@ class RoniClient:
 		self.sock.connect((self.host, self.port))
 
 	def sendData(self, data, dType=0):
-		msg = struct.pack('>II', len(data), dType) + data
-		self.sock.sendall(msg)
+		try:
+			msg = struct.pack('>II', len(data), dType) + data
+			self.sock.sendall(msg)
+			return True
+		except:
+			return False
 
 	def close(self):
 		self.sock.close()

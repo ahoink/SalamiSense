@@ -23,7 +23,7 @@ cv2.setMouseCallback("test", mouseEvent)
 directory = "images"
 images = os.listdir(directory)
 validExt = [".png", ".jpg", ".jpeg"]
-output = open("%s/results.csv" % directory, 'a')
+#output = open("%s/results.csv" % directory, 'a')
 
 for filename in images:
 	
@@ -53,8 +53,9 @@ for filename in images:
 		# save bounding box coords to file and continue to next image
 		elif key == ord('n'):
 			for box in boxes:
-				output.write("%s,%d,%d,%d,%d,%s\n" %\
-				(filename,box[0],box[1],box[2],box[3],"person"))
+				with open("%s/results.csv" % directory, 'a') as output:
+					output.write("%s,%d,%d,%d,%d,%s\n" %\
+					(filename,box[0],box[1],box[2],box[3],"person"))
 			break
 
 		# Draw bounding box on image
@@ -66,7 +67,9 @@ for filename in images:
 
 		cv2.imshow("test", img)
 		key = cv2.waitKey(1)
+	
+	if key == ord('q'):
+		break
 
-
-output.close()
+#output.close()
 cv2.destroyAllWindows()

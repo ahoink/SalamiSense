@@ -23,6 +23,7 @@
 "Src/USBPD_CUST_NVM_API.o"
 "Src/USB_PD_core.o"
 "Src/bmp3.o"
+"Src/lsm303agr_reg.o"
 "Src/main.o"
 "Src/stm32f4xx_hal_msp.o"
 "Src/stm32f4xx_it.o"

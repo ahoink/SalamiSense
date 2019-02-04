@@ -7,6 +7,7 @@ C_SRCS += \
 ../Src/USBPD_CUST_NVM_API.c \
 ../Src/USB_PD_core.c \
 ../Src/bmp3.c \
+../Src/lsm303agr_reg.c \
 ../Src/main.c \
 ../Src/stm32f4xx_hal_msp.c \
 ../Src/stm32f4xx_it.c \
@@ -16,6 +17,7 @@ OBJS += \
 ./Src/USBPD_CUST_NVM_API.o \
 ./Src/USB_PD_core.o \
 ./Src/bmp3.o \
+./Src/lsm303agr_reg.o \
 ./Src/main.o \
 ./Src/stm32f4xx_hal_msp.o \
 ./Src/stm32f4xx_it.o \
@@ -25,6 +27,7 @@ C_DEPS += \
 ./Src/USBPD_CUST_NVM_API.d \
 ./Src/USB_PD_core.d \
 ./Src/bmp3.d \
+./Src/lsm303agr_reg.d \
 ./Src/main.d \
 ./Src/stm32f4xx_hal_msp.d \
 ./Src/stm32f4xx_it.d \

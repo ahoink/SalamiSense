@@ -36,7 +36,8 @@ Src/main.o: ../Src/main.c \
  M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/USB_PD_defines_STUSB-GEN1S.h \
  M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/main.h \
  M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/bmp3.h \
- M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/bmp3_defs.h
+ M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/bmp3_defs.h \
+ M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/lsm303agr_reg.h
 
 M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/main.h:
 
@@ -113,3 +114,5 @@ M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/main.
 M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/bmp3.h:
 
 M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/bmp3_defs.h:
+
+M:/OneDrive/Documents/Drexel/Senior\ Design/Rock960Cape/STM32/firmware/Inc/lsm303agr_reg.h:

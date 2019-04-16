@@ -46,7 +46,7 @@ def main():
 			last10[it] = 1.0 / (t1 - t0)
 			it = (it + 1) % 10
 			fps = np.average(last10)
-			#if 1010 > frames >= 10: framerates.append(fps)
+			if 550 > frames >= 50: framerates.append(fps)
 			t0 = t1
 			cv2.putText(img, "FPS: %.2f" % fps, (0, 30),
 			cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
@@ -67,6 +67,8 @@ def main():
 	#	for n in framerates:
 	#		fi.write("%f," % n)
 	
+	print(np.average(framerates))
+
 	# Close server and display window
 	serv.close()
 	cv2.destroyAllWindows()

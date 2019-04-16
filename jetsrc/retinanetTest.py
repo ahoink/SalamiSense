@@ -35,8 +35,8 @@ def main():
 	keras.backend.tensorflow_backend.set_session(get_session())
 
 	# adjust this to point to your downloaded/trained model
-	#model_path = '/home/nvidia/Documents/SalamiSense/snapshots_1/resnet50_csv_inference.h5'
-	model_path = '/home/nvidia/Documents/SalamiSense/resnet50_csv_inference.h5'
+	model_path = '/home/nvidia/Documents/SalamiSense/snapshots_1/resnet50_csv_inference.h5'
+	#model_path = '/home/nvidia/Documents/SalamiSense/resnet50_csv_inference.h5'
 	
 	print("loading model")
 	# load retinanet model

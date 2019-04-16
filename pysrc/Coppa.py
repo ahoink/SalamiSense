@@ -16,7 +16,7 @@ def decodeColorFrame(colorTxt, dtype=np.uint8):
 
 def encodeDepthFrame(depthFrame, dtype=np.uint16):
 	df = depthFrame.get_data()
-	depth = np.asanyarray(cf, dtype=dtype)
+	depth = np.asanyarray(df, dtype=dtype)
 	ret, buf = cv.imencode('.png', depth)
 	pngTxt = base64.b64encode(buf)
 	return pngTxt

@@ -39,6 +39,7 @@ class BoxThread(threading.Thread):
 		print("Model Loaded")
 		while self.go:
 			if self.data is not None:
+				#t0 = time.time()
 				imgcpy = self.data.copy()
 				img = preprocess_image(imgcpy)
 
@@ -46,6 +47,8 @@ class BoxThread(threading.Thread):
 				self.boxes = boxes.copy()
 				self.scores = scores.copy()
 				self.labels = labels.copy()
+				#t1 = time.time()
+				#print("compute time: %f" % (t1-t0))
 	
 	def getBoxes(self):
 		return self.boxes, self.scores, self.labels
@@ -54,6 +57,18 @@ class BoxThread(threading.Thread):
 		self.go = False
 
 
+def getBoxStats(dimg, box):
+	depthSum = 0
+	depthSqSum = 0
+	n = (box[3] - box[1]) * (box[2] - box[0])
+	for y in range(box[1], box[3]):
+		for x in range(box[0], box[2]):
+			depthSum += dimg[y][x]
+			depthSqSum += dimg[y][x]**2
+	
+	mean = depthSum / n
+	var = depthSqSum / n - mean**2
+	return np.sqrt(var)
 
 def main():
 	print("Initializing vid server")
@@ -83,46 +98,56 @@ def main():
 	labels_to_names = {0: 'person'}
 
 	while keyPress != ord('q'):
-		data = serv.receiveData(cl, Roni.TYPE_RGB)
+		data = []
+		depth = []
+		while not data or not depth:
+			if not data:
+				data = serv.receiveData(cl, Roni.TYPE_RGB)
+			if not depth:
+				depth = serv.receiveData(cl, Roni.TYPE_DEPTH)
+
+		frames += 1
+		if frames < 10: continue
+
+		# get image
+		img = Coppa.decodeColorFrame(data)
+		depImg = Coppa.decodeDepthFrame(depth)
+		if depImg is None: continue
+		depImg = np.asanyarray(depImg)
+		depColorMap = cv2.applyColorMap(cv2.convertScaleAbs(depImg, alpha=0.03), cv2.COLORMAP_JET)
+
+		bThread.setData(img)
+		boxes, scores, labels = bThread.getBoxes()
+		bc = 0
+		if len(boxes) > 0:
+			for box, score, label in zip(boxes[0], scores[0], labels[0]):
+				# scores are sorted so we can break
+				if score < 0.6:
+					break
+				bc += 1
+				color = label_color(label)
 		
-		if len(data) > 0:
-			frames += 1
-			if frames < 50: continue
+				b = box.astype(int)
+				draw_box(img, b, color=color)
+				draw_caption(img, b, "%s" % score)
 
-			# get image
-			img = Coppa.decodeColorFrame(data)
+		# Calculate frame rate and display on image
+		t1 = time.time()
+		last10[it] = 1.0 / (t1 - t0)
+		it = (it + 1) % 10
+		fps = np.average(last10)
+		t0 = t1
+		cv2.putText(img, "stream FPS: %.2f" % fps, (0, 30),
+		cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
+	
+		cv2.putText(img, "People: %d" % bc, (0, 60),
+		cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
+	
+		combined = np.hstack((img, depColorMap))
 
-			bThread.setData(img)
-			boxes, scores, labels = bThread.getBoxes()
-			bc = 0
-			if len(boxes) > 0:
-				for box, score, label in zip(boxes[0], scores[0], labels[0]):
-					# scores are sorted so we can break
-					if score < 0.6:
-						break
-					
-					bc += 1
-					color = label_color(label)
-			
-					b = box.astype(int)
-					draw_box(img, b, color=color)
-					draw_caption(img, b, "%s" % score)
-
-			# Calculate frame rate and display on image
-			t1 = time.time()
-			last10[it] = 1.0 / (t1 - t0)
-			it = (it + 1) % 10
-			fps = np.average(last10)
-			t0 = t1
-			cv2.putText(img, "FPS: %.2f" % fps, (0, 30),
-			cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
-		
-			cv2.putText(img, "People: %d" % bc, (0, 60),
-			cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
-			
-			# Display
-			cv2.imshow('RoniStream', img)
-			keyPress = cv2.waitKey(1)
+		# Display
+		cv2.imshow('RoniStream', combined)
+		keyPress = cv2.waitKey(1)
 
 
 	# Close server and display window 

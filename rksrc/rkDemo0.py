@@ -1,4 +1,4 @@
-from pysrc.Roni import RoniClient
+import pysrc.Roni as Roni
 import pysrc.Coppa as Coppa
 import pyrealsense2 as rs
 import numpy as np
@@ -15,8 +15,8 @@ def main():
 
 	# Enable color and depth streams
 	config = rs.config()
-	#config.enable_stream(rs.stream.depth, 640, 360, rs.format.z16, 30)
-	config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
+	config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 15)
+	config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 15)
 
 	# Start streams
 	profile = pipeline.start(config)
@@ -30,48 +30,30 @@ def main():
 	align = rs.align(alignStream)
 
 	print("Initializing Client")
-	client = RoniClient()
-	print("Connecting")
+	client = Roni.RoniClient()
+	print("Connecting...")
 	client.connect()
-	last10 = [0] * 10
-	i = 0
-	t0 = 0
-	t1 = 1
+	print("streaming...")
 
 	while True:
 		# Get next set of frames from stream
-		t0 = time.time()
 		frames = pipeline.wait_for_frames()
 
 		# Align depth frame to color frame
 		alignedFrames = align.process(frames)
 
 		# Get aligned depth and color frames
-		#depthFrame = alignedFrames.get_depth_frame()
+		depthFrame = alignedFrames.get_depth_frame()
 		colorFrame = alignedFrames.get_color_frame()
 
-		t1 = time.time()
-		last10[i] = 1.0 / (t1 - t0)
-		i = (i + 1) % 10
-		fps = np.average(last10)
-		#print("fps: %f" % (fps))
-		if not colorFrame:
-			continue
-
-		#color = np.asanyarray(colorFrame.get_data())
-		#depth = np.asanyarray(depthFrame.get_data())
-
-		#if len(color) == 0:
-		#	continue
-		#ret, buf = cv.imencode('.jpg', color)
-		#cv.imwrite('poo.jpg', buf)
-		#jpgTxt = base64.b64encode(buf)
-
 		#print(len(jpgTxt))
-		jpgTxt = Coppa.encodeColorFrame(colorFrame)
-		if client.sendData(jpgTxt) == False:
-			break
-
+		depthTxt = Coppa.encodeDepthFrame(depthFrame)
+		colorTxt = Coppa.encodeColorFrame(colorFrame)
+		
+		#if client.sendData(depthTxt) == False and client.sendData(colorTxt) == False:
+		#	break
+		client.sendData(depthTxt, Roni.TYPE_DEPTH)
+		client.sendData(colorTxt, Roni.TYPE_RGB)
 
 	client.close()
 

@@ -13,14 +13,14 @@ PORT = 8888
 TYPE_RGB =      0
 TYPE_DEPTH =    1
 TYPE_EDGE =     2
-
+TYPE_3D =		3
 
 class RoniRecvThread(threading.Thread):
 	def __init__(self, conn):
 		super(RoniRecvThread, self).__init__()
 		self.conn = conn
 		self.go = True
-		self.data = [[],[],[]]
+		self.data = [[],[],[],[]]
 
 	def run(self):
 		while self.go:

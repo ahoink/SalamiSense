@@ -32,6 +32,10 @@ class Wheel(tk.Frame):
 			self.buttonDict[identifier].destroy()
 		self.buttonDict[identifier] = tk.Button(self, text=text, command=command, bg=self.color)
 		self.buttonDict[identifier].place(x=dx, y=dy)
+	
+	def setButtonText(self, identifier, text):
+		if identifier in self.buttonDict:
+			self.buttonDict[identifier].config(text=text)
 
 	def addUserEntry(self, identifier, dx, dy, width, command=None):
 		if identifier in self.entryDict:

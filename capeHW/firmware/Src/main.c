@@ -46,6 +46,8 @@
 #include "USB_PD_core.h"
 #include "bmp3.h"
 #include "lsm303agr_reg.h"
+#include "ccs811.h"
+#include "ens210.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -83,14 +85,14 @@ unsigned int AddressSize = I2C_MEMADD_SIZE_8BIT;
 USB_PD_I2C_PORT STUSB45DeviceConf[USBPORT_MAX];
 uint8_t USB_PD_Interupt_Flag[USBPORT_MAX];
 
-static axis3bit16_t data_raw_acceleration;
-static axis3bit16_t data_raw_magnetic;
-static axis1bit16_t data_raw_temperature;
-static float acceleration_mg[3];
-static float magnetic_mG[3];
-static float temperature_degC;
-static uint8_t whoamI, rst;
-static uint8_t tx_buffer[TX_BUF_DIM];
+//static axis3bit16_t data_raw_acceleration;
+//static axis3bit16_t data_raw_magnetic;
+//static axis1bit16_t data_raw_temperature;
+//static float acceleration_mg[3];
+//static float magnetic_mG[3];
+//static float temperature_degC;
+//static uint8_t whoamI, rst;
+//static uint8_t tx_buffer[TX_BUF_DIM];
 
 /* USER CODE END PV */
 
@@ -134,219 +136,160 @@ void tx_com( uint8_t *tx_buffer, uint16_t len);
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
+	/* USER CODE BEGIN 1 */
 	int PD_port = 0;
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_I2S3_Init();
-  MX_ADC1_Init();
-  MX_SPI1_Init();
-  MX_USART1_UART_Init();
-  MX_I2C1_Init(); // USB-PD I2C
-  MX_I2C2_Init(); // Sensors I2C
-  MX_SPI2_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
 
-  STUSB45DeviceConf[PD_port].I2cBus = PD_port;
-  STUSB45DeviceConf[PD_port].I2cDeviceID_7bit = 0x28;
-  AddressSize = I2C_MEMADD_SIZE_8BIT;
+	MX_GPIO_Init();
+	MX_USART2_UART_Init();
+	MX_I2S3_Init();
+	MX_ADC1_Init();
+	MX_SPI1_Init();
+	MX_USART1_UART_Init();
+	MX_I2C1_Init(); // USB-PD I2C
+	MX_I2C2_Init(); // Sensors I2C
+	MX_SPI2_Init();
 
-  uint8_t Cut[USBPORT_MAX];
 
-  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, 1);
-  int Status = I2C_Read_USB_PD(STUSB45DeviceConf[PD_port].I2cBus,STUSB45DeviceConf[PD_port].I2cDeviceID_7bit,DEVICE_ID ,&Cut[PD_port], 1 );
+	ccs811_dev_t ccs811_dev_0 = {
+		.address = (0x5A << 1),
+		.read = &read_ccs811_i2c,
+		.write = &write_ccs811_i2c
+	};
+
+	ens210_dev_t ens210_dev = {
+		.address = (ENS210_ADDRESS << 1),
+		.part_id = 3,
+		.read = &read_ens210_i2c,
+		.write = &write_ens210_i2c
+	};
+
+
+	/* Initialize ENS210 sensor */
+	uint8_t err;
+	err = ens210_init(&ens210_dev);
+	char buf3[70];
+
+	sprintf(buf3,  "ENS210 init return code: %i\r\nPart ID: %i\r\nAddress: %x\r\n", err, ens210_dev.part_id, ens210_dev.address);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+
+	/* Initialize CCS811 sensor */
+	err = ccs811_init(&ccs811_dev_0);
+	sprintf(buf3,  "CCS811 init return code: %i\r\n", err);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+
+
+	  
+	/* USER CODE BEGIN 2 */
+
+	STUSB45DeviceConf[PD_port].I2cBus = PD_port;
+	STUSB45DeviceConf[PD_port].I2cDeviceID_7bit = 0x28;
+	AddressSize = I2C_MEMADD_SIZE_8BIT;
+
+	uint8_t Cut[USBPORT_MAX];
+
+	int Status = I2C_Read_USB_PD(STUSB45DeviceConf[PD_port].I2cBus,STUSB45DeviceConf[PD_port].I2cDeviceID_7bit,DEVICE_ID ,&Cut[PD_port], 1 );
 	if (Cut[PD_port] == 0x21 )
-	  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, 0);
+		HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, 0);
 
 	HW_Reset_state(PD_port);
 	Print_PDO_FROM_SRC(PD_port);
-	Print_SNK_PDO(PD_port);
-	Update_PDO(PD_port, 2, 12000, 1500);
-	Update_PDO(PD_port, 3, 15000, 1500);
 	Read_SNK_PDO(PD_port);
 	Print_SNK_PDO(PD_port);
 	//    nvm_flash(STUSB45DeviceConf[PD_port].I2cBus);
 
-//	struct bmp3_dev bmp388;
-//	int8_t rslt = BMP3_OK;
-//	bmp388.dev_id = BMP3_I2C_ADDR_PRIM;
-//	bmp388.intf = BMP3_I2C_INTF;
-//	bmp388.read = i2c_bmp388_read;
-//	bmp388.write = i2c_bmp388_write;
-//	bmp388.delay_ms = bmp388_delay_ms;
-//	rslt = bmp3_init(&bmp388);
-//
-//	bmp388_set_normal_mode(&bmp388);
 
-	lsm303agr_ctx_t dev_ctx_xl;
-	dev_ctx_xl.write_reg = lsm303_write;
-	dev_ctx_xl.read_reg = lsm303_read;
-	dev_ctx_xl.handle = (void*)LSM303AGR_I2C_ADD_XL;
 
-	lsm303agr_ctx_t dev_ctx_mg;
-	dev_ctx_mg.write_reg = lsm303_write;
-	dev_ctx_mg.read_reg = lsm303_read;
-	dev_ctx_mg.handle = (void*)LSM303AGR_I2C_ADD_MG;
 
-	uint8_t * bufp = 0x00;
-	HAL_I2C_Mem_Write(&hi2c2, 0x19<<1, LSM303AGR_CFG_REG_A_M, I2C_MEMADD_SIZE_8BIT, (uint8_t *)0x00, 1, HAL_MAX_DELAY);
-	HAL_I2C_Mem_Write(&hi2c2, 0x19<<1, LSM303AGR_CFG_REG_C_M, I2C_MEMADD_SIZE_8BIT, (uint8_t *)0x01, 1, HAL_MAX_DELAY);
-	HAL_I2C_Mem_Write(&hi2c2, 0x19<<1, LSM303AGR_CTRL_REG1_A, I2C_MEMADD_SIZE_8BIT, (uint8_t *)0x57, 1, HAL_MAX_DELAY);
-	/*
-	*  Check device ID
-	*/
-	whoamI = 0;
-	lsm303agr_xl_device_id_get(&dev_ctx_xl, &whoamI);
-	if ( whoamI != LSM303AGR_ID_XL )
+	/* USER CODE END 2 */
+
+
+	/* CCS811 Firmware app read test */
+	ccs811_alg_results_t ccs811_results;
+	char buf2[70];
+	sprintf(buf2, "Firmware app version before get: %i\r\n", ccs811_dev_0.fw_app_version);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+	HAL_Delay(1000);
+	ccs811_dev_0.fw_app_version = get_firmware_app_version(&ccs811_dev_0);
+	sprintf(buf2, "Firmware app version after get: %i\r\n", ccs811_dev_0.fw_app_version);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+
+	/* Report ENS210 operating status */
+	char buf4[110];
+	ens210_status_t ens210_status;
+	err = ens210_get_status(&ens210_dev, &ens210_status); 
+	sprintf(buf4,"ENS210 get status error = %i\r\nlow power = %i\r\npower state = %i\r\nsensor run modes = %i\r\nstart = %i\r\n",
+			err, ens210_status.low_power, ens210_status.power_state, ens210_status.sensor_run_modes, ens210_status.start);
+	HAL_UART_Transmit(&huart1, (uint8_t *)buf4, sizeof(buf4), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)buf4, sizeof(buf4), HAL_MAX_DELAY);
+
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
+
+	char buf5[64];
+	uint16_t co2_ppm;
+	uint16_t tvoc_ppb;
+	ens210_data_t ens210_data = {
+		.T_VAL = 5,
+		.H_VAL = 6
+	};
+
+	while (1)
 	{
-//		while(1); /*manage here device not found */
-		sprintf((char*)tx_buffer, "accel device not found: 0x%x\r\n", whoamI);
-		tx_com( tx_buffer, strlen( (char const*)tx_buffer ) );
+		/* Get CCS811 eCO2 reading */
+		ccs811_results = ccs811_get_data(&ccs811_dev_0);
+		co2_ppm = ccs811_results.eCO2;
+		tvoc_ppb = ccs811_results.TVOC;
+
+		/* Get ENS210 temp and humidity */
+		err = ens210_get_data(&ens210_dev, &ens210_data);
+		
+		memset(buf5, 0, sizeof(buf5));
+		sprintf(buf5, "sensors,%i,%i,%0.2f,%0.2f\r\n", co2_ppm, tvoc_ppb, ens210_data.T_VAL, ens210_data.H_VAL);
+		HAL_UART_Transmit(&huart1, (uint8_t *)buf5, sizeof(buf5), HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart2, (uint8_t *)buf5, sizeof(buf5), HAL_MAX_DELAY);
+
+
+		/* USER CODE END WHILE */
+		//	  HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+		//	  HAL_Delay(200);
+		//HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+		//bmp388_get_sensor_data(&bmp388);
+		/*
+		* Read output only if new value is available
+		HAL_Delay(1000);
+		HAL_GPIO_TogglePin(RED_LED_GPIO_Port, RED_LED_Pin);
+		*/
+
+		/* USER CODE BEGIN 3 */
+
+
 	}
-
-	whoamI = 0;
-	lsm303agr_mag_device_id_get(&dev_ctx_mg, &whoamI);
-	if ( whoamI != LSM303AGR_ID_MG )
-//		while(1); /*manage here device not found */
-	{
-		sprintf((char*)tx_buffer, "mag device not found: 0x%x\r\n", whoamI);
-		tx_com( tx_buffer, strlen( (char const*)tx_buffer ) );
-	}
-
-	/*
-	*  Restore default configuration for magnetometer
-	*/
-	lsm303agr_mag_reset_set(&dev_ctx_mg, PROPERTY_ENABLE);
-	do {
-	 lsm303agr_mag_reset_get(&dev_ctx_mg, &rst);
-	} while (rst);
-
-	/*
-	*  Enable Block Data Update
-	*/
-	lsm303agr_xl_block_data_update_set(&dev_ctx_xl, PROPERTY_ENABLE);
-	lsm303agr_mag_block_data_update_set(&dev_ctx_mg, PROPERTY_ENABLE);
-	/*
-	* Set Output Data Rate
-	*/
-	lsm303agr_xl_data_rate_set(&dev_ctx_xl, LSM303AGR_XL_ODR_10Hz);
-	lsm303agr_mag_data_rate_set(&dev_ctx_mg, LSM303AGR_MG_ODR_10Hz);
-	/*
-	* Set accelerometer full scale
-	*/
-	lsm303agr_xl_full_scale_set(&dev_ctx_xl, LSM303AGR_2g);
-	/*
-	* Set / Reset magnetic sensor mode
-	*/
-	lsm303agr_mag_set_rst_mode_set(&dev_ctx_mg, LSM303AGR_SENS_OFF_CANC_EVERY_ODR);
-	/*
-	* Enable temperature compensation on mag sensor
-	*/
-	lsm303agr_mag_offset_temp_comp_set(&dev_ctx_mg, PROPERTY_ENABLE);
-	/*
-	* Enable temperature sensor
-	*/
-//	lsm303agr_temperature_meas_set(&dev_ctx_xl, LSM303AGR_TEMP_ENABLE);
-	lsm303agr_temperature_meas_set(&dev_ctx_xl, LSM303AGR_TEMP_DISABLE);
-	/*
-	* Set device in continuous mode
-	*/
-	lsm303agr_xl_operating_mode_set(&dev_ctx_xl, LSM303AGR_HR_12bit);
-	/*
-	* Set magnetometer in continuous mode
-	*/
-	lsm303agr_mag_operating_mode_set(&dev_ctx_mg, LSM303AGR_CONTINUOUS_MODE);
-
-    char buffer[15] = "fart\r\n";
-
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-//	  HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
-//	  HAL_Delay(200);
-//	  HAL_UART_Transmit(&huart1, (uint8_t *)buffer, sizeof(buffer), HAL_MAX_DELAY);
-	  //bmp388_get_sensor_data(&bmp388);
-	  /*
-	   * Read output only if new value is available
-	   */
-	  HAL_Delay(500);
-	  uint8_t * bufp;
-	  HAL_I2C_Mem_Read(&hi2c2, 0x19<<1, LSM303AGR_WHO_AM_I_A, I2C_MEMADD_SIZE_8BIT, bufp, 1, 0xFFFF);
-	  sprintf((char*)tx_buffer, "i2c xl read: 0x%x\r\n", bufp);
-	  tx_com(tx_buffer, strlen((char const *)tx_buffer));
-
-	  lsm303agr_reg_t reg;
-	  lsm303agr_xl_status_get(&dev_ctx_xl, &reg.status_reg_a);
-
-//	  if (reg.status_reg_a.zyxda)
-//	  {
-		/* Read accelerometer data */
-		memset(data_raw_acceleration.u8bit, 0x00, 3*sizeof(int16_t));
-		lsm303agr_acceleration_raw_get(&dev_ctx_xl, data_raw_acceleration.u8bit);
-		acceleration_mg[0] = LSM303AGR_FROM_FS_2g_HR_TO_mg( data_raw_acceleration.i16bit[0] );
-		acceleration_mg[1] = LSM303AGR_FROM_FS_2g_HR_TO_mg( data_raw_acceleration.i16bit[1] );
-		acceleration_mg[2] = LSM303AGR_FROM_FS_2g_HR_TO_mg( data_raw_acceleration.i16bit[2] );
-
-		sprintf((char*)tx_buffer, "Acceleration [mg]:%4.2f\t%4.2f\t%4.2f\r\n",
-				acceleration_mg[0], acceleration_mg[1], acceleration_mg[2]);
-		tx_com( tx_buffer, strlen( (char const*)tx_buffer ) );
-//	  }
-
-	  lsm303agr_mag_status_get(&dev_ctx_mg, &reg.status_reg_m);
-	  if (reg.status_reg_m.zyxda)
-	  {
-		/* Read magnetic field data */
-		memset(data_raw_magnetic.u8bit, 0x00, 3*sizeof(int16_t));
-		lsm303agr_magnetic_raw_get(&dev_ctx_mg, data_raw_magnetic.u8bit);
-		magnetic_mG[0] = LSM303AGR_FROM_LSB_TO_mG( data_raw_magnetic.i16bit[0]);
-		magnetic_mG[1] = LSM303AGR_FROM_LSB_TO_mG( data_raw_magnetic.i16bit[1]);
-		magnetic_mG[2] = LSM303AGR_FROM_LSB_TO_mG( data_raw_magnetic.i16bit[2]);
-
-		sprintf((char*)tx_buffer, "Magnetic field [mG]:%4.2f\t%4.2f\t%4.2f\r\n",
-				magnetic_mG[0], magnetic_mG[1], magnetic_mG[2]);
-		tx_com( tx_buffer, strlen( (char const*)tx_buffer ) );
-	  }
-
-//	  lsm303agr_temp_data_ready_get(&dev_ctx_xl, &reg.byte);
-//	  if (reg.byte)
-//	  {
-//		/* Read temperature data */
-//		memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
-//		lsm303agr_temperature_raw_get(&dev_ctx_xl, data_raw_temperature.u8bit);
-//		temperature_degC = LSM303AGR_FROM_LSB_TO_degC_HR( data_raw_temperature.i16bit );
-//
-//		sprintf((char*)tx_buffer, "Temperature [degC]:%6.2f\r\n", temperature_degC );
-//		tx_com( tx_buffer, strlen( (char const*)tx_buffer ) );
-//	  }
-
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+/* USER CODE END 3 */
 }
 
 /**
@@ -861,10 +804,12 @@ int8_t bmp388_get_sensor_data(struct bmp3_dev *dev)
     char buf1[40] = "Temperature\t Pressure\t\n";
     //printf("Temperature\t Pressure\t\n");
     HAL_UART_Transmit(&huart1, (uint8_t *)buf1, sizeof(buf1), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf1, sizeof(buf1), HAL_MAX_DELAY);
     char buf2[40];
     sprintf(buf2, "%0.2f\t\t %0.2f\t\t\r\n", data.temperature, data.pressure);
     //printf("%0.2f\t\t %0.2f\t\t\n",data.temperature, data.pressure);
     HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
 
     return rslt;
 }
@@ -903,6 +848,7 @@ static int32_t lsm303_read(void *handle, uint8_t Reg, uint8_t *Bufp,
 void tx_com( uint8_t *tx_buffer, uint16_t len )
 {
   HAL_UART_Transmit(&huart1, tx_buffer, len, 1000 );
+  HAL_UART_Transmit(&huart2, tx_buffer, len, 1000 );
 }
 
 /* USER CODE END 4 */

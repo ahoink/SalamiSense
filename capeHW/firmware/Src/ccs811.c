@@ -164,14 +164,15 @@ ccs811_error ccs811_start_app(ccs811_dev_t *dev) {
 }
 
 ccs811_alg_results_t ccs811_get_data(ccs811_dev_t *dev) {
+
 	volatile ccs811_alg_results_t results;
 	uint8_t data[8];
 
 	dev->read(dev, CCS811_ALG_RESULT_DATA, 1, data, 8);
 
 	results = (ccs811_alg_results_t ) { .eCO2 = BYTES_TO_WORD(data[0], data[1]),
-					.TVOC = BYTES_TO_WORD(data[2], data[3]), .status =
-							byte_to_status(data[4]), .error = data[5],
+					.TVOC = BYTES_TO_WORD(data[2], data[3]),
+				       	.status = byte_to_status(data[4]), .error = data[5], 
 					.raw_data = bytes_to_raw_data(data[6], data[7]) };
 	return results;
 }

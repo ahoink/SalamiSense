@@ -63,10 +63,11 @@ uint32_t crc7(uint32_t val) {
 
 	// Apply division untial all bits are done
 	while ( bit & (DATA7MASK << CRC7WIDTH) ) {
-		if (bit & val) 
-			val ^= pol;
-		bit >>= 1;
-		pol >>= 1;
+		if (bit & val) {
+			val = val ^ pol;
+		}
+		bit = bit >> 1;
+		pol = pol >> 1;
 	}
 
 	return val;
@@ -76,30 +77,31 @@ uint8_t ens210_get_data(ens210_dev_t *dev, ens210_data_t *ens210_data) {
 
 	uint8_t error = 0;
 	uint8_t rbuf[6];
-	uint32_t t_val;
-	uint32_t h_val;
-	float t_data, h_data;
+	uint32_t t_val, t_data;
+	uint32_t h_val, h_data, h_payl, h_crc;
+	float TinK, TinC, TinF, H;
 
-	error |= dev->read(dev, ENS210_T_VAL, 1, rbuf, 3);
-	t_val = (rbuf[2] << 16) + (rbuf[1] << 8) + rbuf[0];
-	error |= dev->read(dev, ENS210_H_VAL, 1, rbuf, 3);
-	h_val = (rbuf[2] << 16) + (rbuf[1] << 8) + rbuf[0];
+	error |= dev->read(dev, ENS210_T_VAL, 1, rbuf, 6);
+	t_data = (rbuf[2] << 16) + (rbuf[1] << 8) + rbuf[0];
+	h_data = (rbuf[5] << 16) + (rbuf[4] << 8) + rbuf[3];
 
-	t_data = (float)(t_val & 0xFFFF);
-	
-
-	float TinK = t_data / 64;
-	float TinC = TinK - 273.15;
-	float TinF = 1.8 * TinC + 32;
-
+	// calculate temperature
+	t_val = t_data & 0xFFFF;
+	TinK = (float)t_val / 64;
+	TinC = TinK - 273.15;
+	TinF = 1.8 * TinC + 32;
 	ens210_data->T_VAL = TinF;
 
-	// get humidity
-	
-	h_data = (float)(h_val & 0xFFFF);
-	float H = h_data / 512;
+	// calculate humidity
+	h_val = h_data & 0xFFFF;
+	h_payl = h_data & 0x1FFFF;
+	h_crc = (h_data >> 17) & 0x7F;
 
-	ens210_data->H_VAL = H;
+	if (crc7(h_payl) == h_crc) {
+		H = (float)h_val / 512;
+		ens210_data->H_VAL = H;
+	}
+	// ens210_data->H_VAL = (h_data >> 16) & 0x01;
 
 	return error;
 }

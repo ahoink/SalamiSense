@@ -170,12 +170,14 @@ int main(void)
 	MX_SPI2_Init();
 
 
+	/* CCS811 device strucure */
 	ccs811_dev_t ccs811_dev_0 = {
 		.address = (0x5A << 1),
 		.read = &read_ccs811_i2c,
 		.write = &write_ccs811_i2c
 	};
 
+	/* ENS210 device strucure */
 	ens210_dev_t ens210_dev = {
 		.address = (ENS210_ADDRESS << 1),
 		.part_id = 3,
@@ -188,16 +190,17 @@ int main(void)
 	uint8_t err;
 	err = ens210_init(&ens210_dev);
 	char buf3[70];
+	memset(buf3, 0, sizeof(buf3));
 
 	sprintf(buf3,  "ENS210 init return code: %i\r\nPart ID: %i\r\nAddress: %x\r\n", err, ens210_dev.part_id, ens210_dev.address);
 	HAL_UART_Transmit(&huart1, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
 
 	/* Initialize CCS811 sensor */
 	err = ccs811_init(&ccs811_dev_0);
 	sprintf(buf3,  "CCS811 init return code: %i\r\n", err);
 	HAL_UART_Transmit(&huart1, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t *)buf3, sizeof(buf3), HAL_MAX_DELAY);
 
 
 	  
@@ -228,23 +231,25 @@ int main(void)
 	/* CCS811 Firmware app read test */
 	ccs811_alg_results_t ccs811_results;
 	char buf2[70];
+	memset(buf2, 0, sizeof(buf2));
 	sprintf(buf2, "Firmware app version before get: %i\r\n", ccs811_dev_0.fw_app_version);
 	HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
 	HAL_Delay(1000);
 	ccs811_dev_0.fw_app_version = get_firmware_app_version(&ccs811_dev_0);
 	sprintf(buf2, "Firmware app version after get: %i\r\n", ccs811_dev_0.fw_app_version);
 	HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
 
 	/* Report ENS210 operating status */
 	char buf4[110];
+	memset(buf4, 0, sizeof(buf4));
 	ens210_status_t ens210_status;
 	err = ens210_get_status(&ens210_dev, &ens210_status); 
 	sprintf(buf4,"ENS210 get status error = %i\r\nlow power = %i\r\npower state = %i\r\nsensor run modes = %i\r\nstart = %i\r\n",
 			err, ens210_status.low_power, ens210_status.power_state, ens210_status.sensor_run_modes, ens210_status.start);
 	HAL_UART_Transmit(&huart1, (uint8_t *)buf4, sizeof(buf4), HAL_MAX_DELAY);
-	HAL_UART_Transmit(&huart2, (uint8_t *)buf4, sizeof(buf4), HAL_MAX_DELAY);
+	//HAL_UART_Transmit(&huart2, (uint8_t *)buf4, sizeof(buf4), HAL_MAX_DELAY);
 
 
 	/* Infinite loop */
@@ -254,8 +259,8 @@ int main(void)
 	uint16_t co2_ppm;
 	uint16_t tvoc_ppb;
 	ens210_data_t ens210_data = {
-		.T_VAL = 5,
-		.H_VAL = 6
+		.T_VAL = 0,
+		.H_VAL = 0
 	};
 
 	while (1)
@@ -271,24 +276,15 @@ int main(void)
 		memset(buf5, 0, sizeof(buf5));
 		sprintf(buf5, "sensors,%i,%i,%0.2f,%0.2f\r\n", co2_ppm, tvoc_ppb, ens210_data.T_VAL, ens210_data.H_VAL);
 		HAL_UART_Transmit(&huart1, (uint8_t *)buf5, sizeof(buf5), HAL_MAX_DELAY);
-		HAL_UART_Transmit(&huart2, (uint8_t *)buf5, sizeof(buf5), HAL_MAX_DELAY);
+		//HAL_UART_Transmit(&huart2, (uint8_t *)buf5, sizeof(buf5), HAL_MAX_DELAY);
 
-
-		/* USER CODE END WHILE */
-		//	  HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
-		//	  HAL_Delay(200);
-		//HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
-		//bmp388_get_sensor_data(&bmp388);
-		/*
-		* Read output only if new value is available
 		HAL_Delay(1000);
 		HAL_GPIO_TogglePin(RED_LED_GPIO_Port, RED_LED_Pin);
-		*/
 
-		/* USER CODE BEGIN 3 */
-
-
+		/* USER CODE END WHILE */
 	}
+	
+/* USER CODE BEGIN 3 */
 /* USER CODE END 3 */
 }
 
@@ -804,12 +800,12 @@ int8_t bmp388_get_sensor_data(struct bmp3_dev *dev)
     char buf1[40] = "Temperature\t Pressure\t\n";
     //printf("Temperature\t Pressure\t\n");
     HAL_UART_Transmit(&huart1, (uint8_t *)buf1, sizeof(buf1), HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart2, (uint8_t *)buf1, sizeof(buf1), HAL_MAX_DELAY);
+    //HAL_UART_Transmit(&huart2, (uint8_t *)buf1, sizeof(buf1), HAL_MAX_DELAY);
     char buf2[40];
     sprintf(buf2, "%0.2f\t\t %0.2f\t\t\r\n", data.temperature, data.pressure);
     //printf("%0.2f\t\t %0.2f\t\t\n",data.temperature, data.pressure);
     HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
+    //HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), HAL_MAX_DELAY);
 
     return rslt;
 }

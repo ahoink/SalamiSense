@@ -3,21 +3,24 @@ import threading
 import struct
 
 # Default Network Info
-HOST = '129.25.33.136'
+#HOST = '10.250.125.102' # wifi
+HOST = '129.25.33.136' # usual eth0
+#HOST = "10.248.100.51" #demo eth0
+#HOST='192.168.1.126'
 PORT = 8888
 
 # Data Types
 TYPE_RGB =      0
 TYPE_DEPTH =    1
 TYPE_EDGE =     2
-
+TYPE_3D =		3
 
 class RoniRecvThread(threading.Thread):
 	def __init__(self, conn):
 		super(RoniRecvThread, self).__init__()
 		self.conn = conn
 		self.go = True
-		self.data = [[],[],[]]
+		self.data = [[],[],[],[]]
 
 	def run(self):
 		while self.go:

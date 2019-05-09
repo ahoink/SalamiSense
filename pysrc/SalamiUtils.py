@@ -7,6 +7,7 @@ from keras_retinanet.utils.visualization import draw_box, draw_caption
 from keras_retinanet.utils.colors import label_color
 import tensorflow as tf
 import numpy as np
+import time
 
 
 def get_session():
@@ -76,7 +77,7 @@ class NodeData(object):
 	def setHumidity(self, humidity):
 		self.hum = humidity
 	def getHumidity(self):
-		return self.humidity
+		return self.hum
 
 	def setCO2(self, co2):
 		self.co2 = co2
@@ -150,11 +151,14 @@ class NewConnHandler(object):
 	STATE_IDLE = 0
 	STATE_RUNNING = 1
 	STATE_FINISHED = 2
+	STATE_FINISHED_WAIT = 3
+	STATE_TIMEOUT = 4
 
 	def __init__(self):
 		self.state = self.STATE_IDLE
 		self.client = None
 		self.thrd = None
+		self.timeout = 0
 
 	def tick(self):
 		if self.state == self.STATE_RUNNING:
@@ -162,7 +166,17 @@ class NewConnHandler(object):
 				self.client = self.thrd.getClient()
 				self.thrd.join()
 				self.thrd = None
-				self.state = self.STATE_FINISHED
+				if self.client is None:
+					self.timeout = time.time()
+					self.state = self.STATE_TIMEOUT
+				else:
+					self.state = self.STATE_FINISHED
+		elif self.state == self.STATE_TIMEOUT:
+			if (time.time() - self.timeout) > 2:
+				self.state = self.STATE_IDLE
+		elif self.state == self.STATE_FINISHED_WAIT:
+			if (time.time() - self.timeout) > 1:
+				self.state = self.STATE_IDLE
 
 	def newClient(self, roniHost):
 		if self.state != self.STATE_IDLE:
@@ -174,7 +188,8 @@ class NewConnHandler(object):
 	
 	def getClient(self):
 		if self.state == self.STATE_FINISHED:
-			self.state = self.STATE_IDLE
+			self.state = self.STATE_FINISHED_WAIT
+			self.timeout = time.time()
 			c = self.client
 			self.client = None
 			return c
@@ -185,10 +200,15 @@ class NewConnHandler(object):
 
 	def getStatusStr(self):
 		if self.state == self.STATE_IDLE:
-			return "New  Node"
+			return "New  Node", "black"
 		elif self.state == self.STATE_RUNNING:
-			return "Searching"
-		elif self.state == self.STATE_FINISHED:
-			return "Connected"
+			return "Searching", "#2010B0"
+		elif self.state == self.STATE_FINISHED or \
+			 self.state == self.STATE_FINISHED_WAIT:
+			return "Connected", "#104010"
+		elif self.state == self.STATE_TIMEOUT:
+			return "Timed Out", "red"
+		else:
+			return ""
 
 

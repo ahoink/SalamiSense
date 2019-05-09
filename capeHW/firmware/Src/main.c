@@ -798,12 +798,10 @@ int8_t bmp388_get_sensor_data(struct bmp3_dev *dev)
 
     /* Print the temperature and pressure data */
     char buf1[40] = "Temperature\t Pressure\t\n";
-    //printf("Temperature\t Pressure\t\n");
     HAL_UART_Transmit(&huart1, (uint8_t *)buf1, sizeof(buf1), 10);
     HAL_UART_Transmit(&huart2, (uint8_t *)buf1, sizeof(buf1), 10);
     char buf2[40];
     sprintf(buf2, "%0.2f\t\t %0.2f\t\t\r\n", data.temperature, data.pressure);
-    //printf("%0.2f\t\t %0.2f\t\t\n",data.temperature, data.pressure);
     HAL_UART_Transmit(&huart1, (uint8_t *)buf2, sizeof(buf2), 10);
     HAL_UART_Transmit(&huart2, (uint8_t *)buf2, sizeof(buf2), 10);
 

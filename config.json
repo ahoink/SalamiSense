@@ -1,0 +1,21 @@
+{
+	"Sensors":
+	{
+		"MaxVacantTemp":28,
+		"TargetVacantTemp":27,
+		"MinVacantTemp":16,
+		"MaxOccupTemp":24,
+		"TargetOccupTemp":22,
+		"MinOccupTemp":18,
+		"MaxVacantHumid":80,
+		"TargetVacantHumid":70,
+		"MinVacantHumid":30,
+		"MaxOccupHumid":60,
+		"TargetOccupHumid":50,
+		"MinOccupHumid":40
+	},
+	"RoomSize":"Medium",
+	"MaxOccupancy":25,
+	"Mode":"Cool"
+}
+	

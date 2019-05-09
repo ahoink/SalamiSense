@@ -64,7 +64,11 @@ class RoniServer:
 		self.sock.listen()
 
 	def getClient(self):
-		conn, addr = self.sock.accept()
+		self.sock.settimeout(10.0)
+		try:
+			conn, addr = self.sock.accept()
+		except:
+			return None
 		recvThread = RoniRecvThread(conn)
 		self.connections.append(recvThread)
 		recvThread.start()
@@ -72,6 +76,11 @@ class RoniServer:
 
 	def receiveData(self, conn, dType=0):
 		return conn.getData(dType)
+	
+	def dropClient(self, conn):
+		self.connections.remove(conn)
+		conn.stop()
+		conn.join()
 
 	def close(self):
 		for conn in self.connections:

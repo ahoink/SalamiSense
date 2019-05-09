@@ -33,9 +33,9 @@ class Wheel(tk.Frame):
 		self.buttonDict[identifier] = tk.Button(self, text=text, command=command, bg=self.color)
 		self.buttonDict[identifier].place(x=dx, y=dy)
 	
-	def setButtonText(self, identifier, text):
+	def setButtonText(self, identifier, text, color=None):
 		if identifier in self.buttonDict:
-			self.buttonDict[identifier].config(text=text)
+			self.buttonDict[identifier].config(text=text, foreground=color)
 
 	def addUserEntry(self, identifier, dx, dy, width, command=None):
 		if identifier in self.entryDict:
@@ -66,6 +66,6 @@ class Wheel(tk.Frame):
 
 	def defaultConfig(self):
 		self.setTitle("Salami Sense")
-		self.setSize("800x480")
+		self.setSize("900x480")
 		self.setBackground("grey")
 

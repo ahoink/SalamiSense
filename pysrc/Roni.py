@@ -28,7 +28,7 @@ class RoniRecvThread(threading.Thread):
 		super(RoniRecvThread, self).__init__()
 		self.conn = conn
 		self.go = True
-		self.data = [[],[],[],[]]
+		self.data = [[],[],[],[],[],[],[],[],[],[],[],[]]
 
 	def run(self):
 		while self.go:

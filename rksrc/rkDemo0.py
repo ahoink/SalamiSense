@@ -47,7 +47,8 @@ def main():
 	cape.openPort()
 	print("UART connected to cape:", uartPort)
 	print("streaming...")
-
+	
+	itr = 0
 	while True:
 		# Get next set of frames from stream
 		frames = pipeline.wait_for_frames()
@@ -62,9 +63,10 @@ def main():
 		pts = pc.calculate(depthFrame)
 		v = pts.get_vertices()
 		verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
-		
-		vertPick = pickle.dumps(verts, protocol=pickle.HIGHEST_PROTOCOL)
-		
+		step = int(len(verts) / 8) #640x480 / 8 = 38,400
+		vertSend = verts[itr*step : step*(itr+1)]
+		vertPick = pickle.dumps(vertSend, protocol=pickle.HIGHEST_PROTOCOL)
+
 		# Get aligned depth and color frames
 		#depthFrame = alignedFrames.get_depth_frame()
 		#colorFrame = alignedFrames.get_color_frame()
@@ -81,10 +83,11 @@ def main():
 		colorTxt = Coppa.encodeColorFrame(colorFrame)
 		
 		client.sendData(depthTxt, Roni.TYPE_DEPTH)
-		#client.sendData(vertPick, Roni.TYPE_3D)
+		client.sendData(vertPick, (Roni.TYPE_3D_0 + (itr % 8)))
 		if not client.sendData(colorTxt, Roni.TYPE_RGB):
 			break
 		
+		itr = (itr+1) % 8
 
 	client.close()
 	cape.closePort()

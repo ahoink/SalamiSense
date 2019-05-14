@@ -13,7 +13,15 @@ PORT = 8888
 TYPE_RGB =      0
 TYPE_DEPTH =    1
 TYPE_EDGE =     2
-TYPE_3D =		3
+TYPE_3D_0 =	3
+TYPE_3D_1 =	4
+TYPE_3D_2 =	5
+TYPE_3D_3 =	6
+TYPE_3D_4 =	7
+TYPE_3D_5 =	8
+TYPE_3D_6 =	9
+TYPE_3D_7 =	10
+
 
 class RoniRecvThread(threading.Thread):
 	def __init__(self, conn):

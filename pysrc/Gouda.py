@@ -59,6 +59,10 @@ class Wheel(tk.Frame):
 			self.frameDict[identifier].configure(image=image)
 			self.frameDict[identifier].image = image
 
+	def setFrameClickEvent(self, identifier, eventFn):
+		if identifier in self.frameDict:
+			self.frameDict[identifier].bind('<Button-1>', eventFn)
+
 	def setFrameText(self, identifier, text, color=None):
 		if identifier in self.frameDict:
 			self.frameDict[identifier].configure(text=text, foreground=color)

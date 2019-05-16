@@ -18,23 +18,35 @@ def get_session():
 class NodeData(object):
 	def __init__(self):
 		self.client = None
+		self.cid = 0
 
 		self.boxes = []
 		self.scores = []
 		self.labels = []
 		self.color = []
 		self.depth = []
+		self.vert = []
+		self.refPt = [[0, 0, 0],[0, 0, 0],[0, 0, 0]]
+		self.refXY = [[0,0],[0,0],[0,0]]
+		self.basis = [[0,0,0],[0,0,0],[0,0,0]]
 
 		self.people = 0
 		self.temp = 0
+		self.dtemp = 0
 		self.hum = 0
 		self.co2 = 0
+		self.dco2 = 0
 		self.tvoc = 0
 
 	def setClient(self, client):
 		self.client = client
 	def getClient(self):
 		return self.client
+
+	def setID(self, cid):
+		self.cid = cid
+	def getID(self):
+		return self.cid
 
 	def getResults(self):
 		return self.boxes, self.scores, self.labels
@@ -64,15 +76,49 @@ class NodeData(object):
 	def getDepth(self):
 		return self.depth
 
+	def setVertex(self, v, i):
+		start = i * len(v)
+		end = (i + 1) * len(v)
+		if len(self.vert) < end:
+			self.vert.extend(v)
+		else:
+			self.vert[start:end] = v[:]
+
+	def getVertex(self):
+		return self.vert
+
+	def setRefPoint(self, ind, x, y, z, fx=0, fy=0):
+		self.refPt[ind][0] = x
+		self.refPt[ind][1] = y
+		self.refPt[ind][2] = z
+		self.refXY[ind][0] = fx
+		self.refXY[ind][1] = fy
+	def getRefPointList(self):
+		return self.refPt
+	def getRefPoint(self,ind):
+		return self.refPt[ind]
+	def getOrigin(self):
+		return self.refPt[0]
+	def getRefXY(self):
+		return self.refXY
+
+	def setBasis(self, basis):
+		self.basis = basis
+	def getBasis(self):
+		return self.basis
+
 	def setPeople(self, people):
 		self.people = people
 	def getPeople(self):
 		return self.people
 	
 	def setTemp(self, temp):
+		self.dtemp = temp - self.temp
 		self.temp = temp
 	def getTemp(self):
 		return self.temp
+	def getDTemp(self):
+		return self.dtemp
 
 	def setHumidity(self, humidity):
 		self.hum = humidity
@@ -80,9 +126,12 @@ class NodeData(object):
 		return self.hum
 
 	def setCO2(self, co2):
+		self.dco2 = co2 - self.co2
 		self.co2 = co2
 	def getCO2(self):
 		return self.co2
+	def getDCO2(self):
+		return self.dco2
 
 	def setTVOC(self, tvoc):
 		self.tvoc = tvoc

@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import time
 import threading
-import pyrealsense2 as rs
 import json
 import pickle
 
@@ -10,6 +9,8 @@ import pysrc.Roni as Roni
 import pysrc.Coppa as Coppa
 import pysrc.Gouda as Gouda
 from pysrc.SalamiUtils import NodeData, NewConnHandler, BoxThread
+import pysrc.VectorUtils as vu
+import pysrc.Peeps as Peeps
 
 import keras
 from keras_retinanet import models
@@ -82,8 +83,8 @@ def controlHVAC(config, pplCount):
 		if config["Mode"] == "Cool":
 			if tempr > config["MaxVacantTemp"]:
 				print("AC ON HIGH")
-			elif tempr > config["TargetVacamtTemp"]:
-				print("AC ON LOW FLOW")
+			elif tempr > config["TargetVacantTemp"]:
+				print("AC ON LOW")
 			else:
 				print("AC OFF")
 		# Set to Heating
@@ -132,6 +133,46 @@ def delNodeButton():
 		else:
 			nindex = -1
 
+Calibrating = False
+CalIndex = 0
+def calibrator(x, fx=0, fy=0):
+	global Calibrating
+	global CalIndex
+	global clients
+	global nindex
+	if not Calibrating:
+		if x is None:
+			nindex = 0
+			Calibrating = True
+	else:
+		if x is not None and len(x) == 3:
+			print("Calibration point %d:" % (CalIndex))
+			print("%f,%f,%f" % (x[0],x[1],x[2]))
+			clients[nindex].setRefPoint(CalIndex, x[0], x[1], x[2], fx, fy)
+		nindex = (nindex + 1) % len(clients)
+		if nindex == 0:
+			CalIndex += 1
+		if CalIndex >= 3:
+			Calibrating = False
+			CalIndex = 0
+			for c in clients:
+				refs = c.getRefPointList()
+				basis = vu.GetNewBasis(refs[0], refs[1], refs[2])
+				c.setBasis(basis)
+
+def calButton():
+	calibrator(None)
+
+def clickEvent(event):
+	global clients
+	global nindex
+	v = clients[nindex].getVertex()
+	ind = int(event.y * 640 + event.x)
+	if len(v) > ind:
+		calibrator(v[ind], event.x, event.y)
+	else:
+		calibrator(None)
+
 def initGUI():
 	wheel = Gouda.Wheel()
 	wheel.defaultConfig()
@@ -140,6 +181,7 @@ def initGUI():
 	wheel.setFrameText("nonode", "No node connected", "red")
 
 	wheel.addFrame("vid", 0, 0)
+	wheel.setFrameClickEvent("vid", clickEvent)
 	wheel.addFrame("depth", 480, 360)
 
 	wheel.addFrame("title", 645, 10)
@@ -148,6 +190,10 @@ def initGUI():
 	wheel.addFrame("threshQ", 645, 125)
 	wheel.setFrameText("threshQ", "Threshold (%):", "blue")
 	wheel.addUserEntry("thresh", 670, 150, 3, None)
+
+	wheel.addFrame("pdistQ", 755, 125)
+	wheel.setFrameText("pdistQ", "Sensitivity:", "blue")
+	wheel.addUserEntry("pdist", 770, 150, 3, None)
 
 	wheel.addFrame("tempQ", 645, 200)
 	wheel.setFrameText("tempQ", "Target Temp (ºF):")
@@ -192,6 +238,7 @@ def initGUI():
 	wheel.addButton("newnode", "New  Node", 0, 0, newNodeButton)
 	wheel.addButton("selnode", ">", 0, 28, selNodeButton)
 	wheel.addButton("delnode", "x", 606, 0, delNodeButton)
+	wheel.addButton("calibrate", "", 0, 450, calButton)
 	return wheel
 
 
@@ -220,10 +267,6 @@ def main():
 	serv = Roni.RoniServer()
 	serv.listen()
 	connHandler = NewConnHandler()
-	#connHandler.newClient(serv)
-	#while(connHandler.getState() != connHandler.STATE_FINISHED):
-	#	connHandler.tick()
-	#cl = connHandler.getClient()
 	
 	# For averaging framerate
 	t0 = time.time()
@@ -231,12 +274,6 @@ def main():
 	last10 = [0]*10
 	it = 0
 	frames = 0
-
-	# Senpais
-	tempr = 0
-	humid = 0
-	co2 = 0
-
 
 	# adjust this to point to your downloaded/trained model
 	model_path = '/home/nvidia/Documents/SalamiSense/snapshots_1/resnet50_csv_inference.h5'
@@ -249,14 +286,21 @@ def main():
 
 	gui = initGUI()
 	thresh = 0
+	pdist = 0
 
 	while keyPress != ord('q'):
 		connHandler.tick()
+		# New client connection established
 		if connHandler.getState() == connHandler.STATE_FINISHED:
 			newClient = connHandler.getClient()
 			if newClient is not None:
+				cids = [citer.getID() for citer in clients]
 				c = NodeData()
 				c.setClient(newClient)
+				for i in range(1000):
+					if not i in cids:
+						c.setID(i)
+						break
 				clients.append(c)
 				nindex = len(clients) - 1
 				bThread.addClient(c)
@@ -270,13 +314,21 @@ def main():
 			gui.setFrameImage("depth", [])
 			continue
 
-		# Recieve color and depth data from each client
+		# Receive color and depth data from each client
 		for c in clients:
 			data = serv.receiveData(c.getClient(), Roni.TYPE_RGB)
 			depth = serv.receiveData(c.getClient(), Roni.TYPE_DEPTH)
 			sense = serv.receiveData(c.getClient(), Roni.TYPE_EDGE)
+			vfrac = 0
+			vertStr = None
+			for i in range(8):
+				vertStr = serv.receiveData(c.getClient(), Roni.TYPE_3D_0 + i)
+				if vertStr is not None and vertStr:
+					vertStr = pickle.loads(vertStr)
+					vfrac = i
+					break
 
-			# Decode data to image
+			# Decode data to images and sensor readings
 			if data is not None and data:
 				img = Coppa.decodeColorFrame(data)
 				c.setColor(img.copy())
@@ -290,6 +342,8 @@ def main():
 					c.setTVOC(sense[1])
 					c.setTemp(sense[2])
 					c.setHumidity(sense[3])
+			if vertStr is not None and len(vertStr) > 0:
+				c.setVertex(vertStr, vfrac)
 
 		# Skip first 10 frames, just in case
 		frames += 1
@@ -301,33 +355,61 @@ def main():
 		except:
 			pass
 
+		newPDist = gui.getEntryValue("pdist")
+		try:
+			pdist = float(newPDist)
+		except:
+			pass
+
+		# get copies of color and depth frames
 		img = clients[nindex].getColor().copy()
 		depImg = clients[nindex].getDepth().copy()
 		if len(img) < 1 or  len(depImg) < 1:
 			continue
 
-		# Count number of valid boxes and people, visualize boxes
-		bc = 0
-		totalPeep = 0
+		fVert = clients[nindex].getVertex()
+
+		# Display calibration points
+		refXY = clients[nindex].getRefXY()
+		for pt in refXY:
+			cv2.circle(img, (pt[0], pt[1]), 4, (0, 255, 255), 1)
+			img[pt[1]][pt[0]] = [0, 255, 255]
+		
+		# Find valid boxes and add to or update people list
+		people = []
 		for c in clients:
 			boxes, scores, labels = c.getResults()
 			if len(boxes) > 0:
 				for box, score, label in zip(boxes[0], scores[0], labels[0]):
-					# scores are sorted so we can break
+					# scores are sorted so we can break at first low score found
 					if score < (thresh / 100):
 						break
-					totalPeep += 1
-					if c is clients[nindex]:
-						bc += 1
-						color = label_color(label)
-				
-						b = box.astype(int)
-						draw_box(img, b, color=color)
-						if showConf:
-							draw_caption(img, b, "%0.0f%%" % (float(score) * 100))
+					Peeps.AddToPeople(c, box, people, pdist, score)
+							
+		totalPeeps = len(people)
+		frameBoxes, scores, isDupe = Peeps.GetIDBoxes(nindex, people)
+		framePeeps = len(frameBoxes)
+
+		# Visualize People found in frame
+		for i in range(framePeeps):
+			# color based on if appears in multiple frames
+			color = (0, 0, 255)
+			if isDupe[i]: color = (0, 255, 0)
+		
+			b = frameBoxes[i].astype(int)
+			draw_box(img, b, color=color)
+			
+			# draw center point of box
+			x = int((frameBoxes[i][0] + frameBoxes[i][2]) / 2)
+			y = int((frameBoxes[i][1] + frameBoxes[i][3]) / 2)
+			cv2.circle(img, (x,y), 3, (255, 255, 0), -1)
+			
+			if showConf:
+				draw_caption(img, b, "%0.0f%%" % (float(scores[i]) * 100))
+
 
 		# Do HVAC stuff
-		#controlHVAC(config, totalPeep)
+		#controlHVAC(config, totalPeeps)
 
 		# Calculate frame rate and display on image
 		t1 = time.time()
@@ -338,18 +420,20 @@ def main():
 		cv2.putText(img, "stream FPS: %.2f" % fps, (0, 30),
 		cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 0, 255))
 	
+		# Sensor readings
 		fCO2 = clients[nindex].getCO2()
 		fTVOC = clients[nindex].getTVOC()
 		fTemp = clients[nindex].getTemp()
 		fHum = clients[nindex].getHumidity()
-		gui.setFrameText("people", "%d/%d (frame/total)" % (bc, totalPeep))
-		#gui.setFrameText("sensors", "CO2: %f\nTVOC: %f\nTemp: %f\nHum: %f" % (fCO2,\
-		#	fTVOC, fTemp, fHum))
+	
+		# Display sensor readings on GUI
+		gui.setFrameText("people", "%d/%d (frame/total)" % (framePeeps, totalPeeps))
 		gui.setFrameText("temp", "%.2f ºF" % fTemp)
 		gui.setFrameText("humid", "%.2f%%" % fHum)
 		gui.setFrameText("co2", "%.0f ppm" % fCO2)
 		gui.setFrameText("tvoc", "%.0f ppb" % fTVOC)
-	
+
+		# Display color and depth images (depth picture-in-picture)
 		imRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 		depRGB = cv2.cvtColor(depImg, cv2.COLOR_BGR2RGB)
 		guiImg = ImageTk.PhotoImage(Image.fromarray(imRGB))
@@ -357,8 +441,6 @@ def main():
 
 		gui.setFrameImage("vid", guiImg)
 		gui.setFrameImage("depth", depImg)
-
-		# Display
 
 
 	# Close server and display window 

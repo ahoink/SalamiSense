@@ -11,6 +11,7 @@ import pysrc.Gouda as Gouda
 from pysrc.SalamiUtils import NodeData, NewConnHandler, BoxThread
 import pysrc.VectorUtils as vu
 import pysrc.Peeps as Peeps
+import pysrc.Regression as Reg
 
 import keras
 from keras_retinanet import models
@@ -48,53 +49,53 @@ def getBoxStats(dimg, box):
 	var = depthSqSum / n - mean**2
 	return np.sqrt(var)
 
-def controlHVAC(config, pplCount):
+def controlHVAC(config, crowded, tempr):
 	# Room Occupied
-	if pplCount > 0:
+	if crowded > 0:
 		# Set to Cooling
 		if config["Mode"] == "Cool":
-			if tempr > config["MaxOccupTemp"]:
-				print("AC ON FULL BLAST")
-			elif tempr > config["TargetOccupTemp"]:
-				if pplCount > 8:
-					print("AC ON HIGH")
-				elif pplCount > 4:
-					print("AC ON MEDIUM")
+			if tempr > config["Sensors"]["MaxOccupTemp"]:
+				return ("AC ON FULL BLAST")
+			elif tempr > config["Sensors"]["TargetOccupTemp"]:
+				if crowded > 80:
+					return ("AC ON HIGH")
+				elif crowded > 40:
+					return ("AC ON MEDIUM")
 				else:
-					print("AC ON LOW")
+					return ("AC ON LOW")
 			else:
-				print("AC OFF")
+				return ("AC OFF")
 		# Set to Heating
 		elif config["Mode"] == "Heat":
-			if tempr < config["MinOccupTemp"]:
-				print("HEAT ON FULL BLAST")
-			elif tempr < config["TargetOccupTemp"]:
-				if pplCount > 8:
-					print("HEAT ON LOW")
-				elif pplCount > 4:
-					print("HEAT ON MEDIUM")
+			if tempr < config["Sensors"]["MinOccupTemp"]:
+				return ("HEAT ON FULL BLAST")
+			elif tempr < config["Sensors"]["TargetOccupTemp"]:
+				if crowded > 80:
+					return ("HEAT ON LOW")
+				elif crowded > 40:
+					return ("HEAT ON MEDIUM")
 				else:
-					print("HEAT ON HIGH")
+					return ("HEAT ON HIGH")
 			else:
-				print("HEAT OFF")
+				return ("HEAT OFF")
 	# Room Vacant
 	else:
 		# Set to Cooling
 		if config["Mode"] == "Cool":
-			if tempr > config["MaxVacantTemp"]:
-				print("AC ON HIGH")
-			elif tempr > config["TargetVacantTemp"]:
-				print("AC ON LOW")
+			if tempr > config["Sensors"]["MaxVacantTemp"]:
+				return ("AC ON HIGH")
+			elif tempr > config["Sensors"]["TargetVacantTemp"]:
+				return ("AC ON LOW")
 			else:
-				print("AC OFF")
+				return ("AC OFF")
 		# Set to Heating
 		elif config["Mode"] == "Heat":
-			if tempr < config["MinVacantTemp"]:
-				print("HEAT ON HIGH")
-			elif tempr < config["TargetVacantTemp"]:
-				print("HEAT ON LOW")
+			if tempr < config["Sensors"]["MinVacantTemp"]:
+				return ("HEAT ON HIGH")
+			elif tempr < config["Sensors"]["TargetVacantTemp"]:
+				return ("HEAT ON LOW")
 			else:
-				print("HEAT OFF")
+				return ("HEAT OFF")
 
 
 # --- GUI FUNCTIONS --- #
@@ -224,6 +225,8 @@ def initGUI():
 	wheel.addFrame("tvoc", 770, 380)
 	wheel.setFrameText("tvoc", "idk")
 
+	wheel.addFrame("HVAC", 0, 480)
+
 	wheel.addFrame("poopy", 1000, 360)
 	wheel.setFrameText("poopy", "( '_>') Don't look here")
 
@@ -279,10 +282,12 @@ def main():
 	model_path = '/home/nvidia/Documents/SalamiSense/snapshots_1/resnet50_csv_inference.h5'
 	#model_path = '/home/nvidia/Documents/SalamiSense/resnet50_csv_inference10.h5'
 
-	print("loading model")
+	print("loading CNN model")
 	# load retinanet model
 	bThread = BoxThread(model_path)
 	bThread.start()
+
+	theta, meanStd = Reg.loadModel("noisy_sensor_model.csv")
 
 	gui = initGUI()
 	thresh = 0
@@ -361,6 +366,12 @@ def main():
 		except:
 			pass
 
+		newTrgtTemp = gui.getEntryValue("temp")
+		try:
+			config["Sensors"]["TargetOccupTemp"] = int(newTrgtTemp)
+		except:
+			pass
+
 		# get copies of color and depth frames
 		img = clients[nindex].getColor().copy()
 		depImg = clients[nindex].getDepth().copy()
@@ -408,9 +419,6 @@ def main():
 				draw_caption(img, b, "%0.0f%%" % (float(scores[i]) * 100))
 
 
-		# Do HVAC stuff
-		#controlHVAC(config, totalPeeps)
-
 		# Calculate frame rate and display on image
 		t1 = time.time()
 		last10[it] = 1.0 / (t1 - t0)
@@ -423,9 +431,18 @@ def main():
 		# Sensor readings
 		fCO2 = clients[nindex].getCO2()
 		fTVOC = clients[nindex].getTVOC()
-		fTemp = clients[nindex].getTemp()
+		fTemp = clients[nindex].getTemp() 
 		fHum = clients[nindex].getHumidity()
 	
+		# Regression
+		# [people, co2, tvoc, tempr, humid]
+		regInput = [totalPeeps, fCO2, fTVOC, 70, fHum]
+		res = Reg.runThroughModel(regInput, theta, meanStd)
+
+		# Do HVAC stuff
+		ctrl = controlHVAC(config, res, 70) + ("(%.2f)" % res)
+		gui.setFrameText("HVAC", ctrl)
+
 		# Display sensor readings on GUI
 		gui.setFrameText("people", "%d/%d (frame/total)" % (framePeeps, totalPeeps))
 		gui.setFrameText("temp", "%.2f ºF" % fTemp)

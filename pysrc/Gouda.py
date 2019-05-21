@@ -70,6 +70,6 @@ class Wheel(tk.Frame):
 
 	def defaultConfig(self):
 		self.setTitle("Salami Sense")
-		self.setSize("900x480")
+		self.setSize("900x510")
 		self.setBackground("grey")
 

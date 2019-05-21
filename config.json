@@ -1,12 +1,12 @@
 {
 	"Sensors":
 	{
-		"MaxVacantTemp":28,
-		"TargetVacantTemp":27,
-		"MinVacantTemp":16,
-		"MaxOccupTemp":24,
-		"TargetOccupTemp":22,
-		"MinOccupTemp":18,
+		"MaxVacantTemp":80,
+		"TargetVacantTemp":77,
+		"MinVacantTemp":60,
+		"MaxOccupTemp":76,
+		"TargetOccupTemp":70,
+		"MinOccupTemp":65,
 		"MaxVacantHumid":80,
 		"TargetVacantHumid":70,
 		"MinVacantHumid":30,
